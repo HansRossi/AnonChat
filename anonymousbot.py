@@ -1,6 +1,8 @@
 import telebot
 from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from collections import deque
+from flask import Flask, request
+import threading
 
 # Токен бота
 bot = telebot.TeleBot('7330871122:AAHhvZgtrAVjWWAAvXhZ818E5dEBeNGe0jg')
@@ -9,6 +11,9 @@ bot = telebot.TeleBot('7330871122:AAHhvZgtrAVjWWAAvXhZ818E5dEBeNGe0jg')
 search_queue = deque()
 # Словарь для хранения пар собеседников
 active_chats = {}
+
+# Создание Flask приложения
+app = Flask(__name__)
 
 # Главное меню
 def main_menu():
@@ -138,9 +143,21 @@ def video_note_message_handler(message: Message):
     else:
         bot.send_message(user_id, "❗ Вы не находитесь в чате. Используйте меню для действий.", reply_markup=main_menu())
 
-# Запуск бота
+# Создание эндпоинта для обработки запросов от Telegram
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return '', 200
+
+# Запуск Flask и бота
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
 if __name__ == '__main__':
-    try:
-        bot.polling()
-    except Exception as e:
-        print(f"Ошибка: {e}")
+    # Запуск Flask в отдельном потоке
+    threading.Thread(target=run_flask).start()
+
+    # Запуск бота
+    bot.polling(none_stop=True)
